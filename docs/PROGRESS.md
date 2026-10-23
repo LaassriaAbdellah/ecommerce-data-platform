@@ -1,4 +1,157 @@
-﻿# Progression — E-Commerce Data Platform
+# Progression — E-Commerce Data Platform
+
+## Test multi-anomalies — 2026-10-23
+- Phase 1 ; tâche autorisée : test_multiple_issues_count_order_once ; statut : DONE.
+- Fichiers modifiés : tests/test_orders_validator.py et docs/PROGRESS.md.
+- Cas synthétique : une commande delivered sans date de livraison et avec client inconnu, plus une commande témoin valide.
+- Vérifie deux motifs JSON sans doublon, quality_issue_count=2, review_orders=1, valid_orders=1 et les compteurs par règle ; témoin sans motif.
+- Commande exécutée : .venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider ; résultat : 7 passed in 0.64s (5 tests validateur et 2 environnement).
+- git diff --check : aucune erreur. Pipeline et données inchangés ; aucun commit/push.
+- Prochaine action proposée : choisir un cas structurel manquant (identifiant vide ou doublonné), après confirmation. Les nombres de tests des audits ci-dessous sont historiques.
+
+## État actuel — 2026-10-23
+- Phase : 1 — exploration Olist et validation de orders ; statut global : IN_PROGRESS.
+- Phase 0 : terminée ; développement exclusivement sur C:, avec le .venv local. Aucun accès à D:.
+- Tâche de cette intervention : audit de l'existant et mise à jour documentaire ; statut : DONE.
+- Fichiers documentaires modifiés : README.md, docs/PROGRESS.md et docs/ARCHITECTURE_DECISIONS.md ; AGENTS.md inchangé.
+- Périmètre autorisé : documentation uniquement ; aucun changement du pipeline, des tests, du notebook ou des données, aucun commit/push.
+- Les constats ci-dessous remplacent les mentions antérieures de phase 1 non commencée.
+
+## Travaux inspectés et vérifiés
+- Neuf CSV présents dans data/ : orders, customers, order_items, order_payments, order_reviews, products, sellers, geolocation et product_category_name_translation, avec les noms Olist complets.
+- Provenance déclarée par l'étudiant : Brazilian E-Commerce Public Dataset by Olist, https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce. Conditions/licence et modalités d'acquisition restent à consigner ; aucun téléchargement réalisé pendant cet audit.
+- Notebook réel : notebooks/01_data_exploration.ipynb (34 cellules). Contient exploration des types, nulls, doublons, statuts, dates et références clients. Métadonnées Python 3.11.0 et noyau python3 ; sélection effective du noyau VS Code non vérifiable ici.
+- Les sorties sauvegardées du notebook concordent avec les totaux et règles métier ci-dessous. Notebook lu, non réexécuté.
+- Module réel : src/validation/orders_validator.py ; validate_orders(orders, customers) et main() présents. Le fichier singulier src/validation/order_validator.py visible dans un onglet n'existe pas sur disque.
+- tests/test_orders_validator.py : quatre cas (valid, livraison manquante, expédition avant achat, client inconnu). tests/test_environment.py : deux contrôles d'environnement.
+- Sorties existantes : data/processed/orders_validated.csv et orders_quality_report.json. Rapport JSON identique au recalcul en mémoire ; trois colonnes de qualité du CSV identiques au résultat recalculé.
+- git check-ignore confirme brut et sorties ignorés ; git ls-files data ne retourne que data/.gitkeep.
+- Au début de l'audit : trois documents déjà modifiés, notebook/module/tests de phase 1 non suivis. Changements existants conservés ; HEAD 7df7e27, aucun commit créé.
+
+## Résultats recalculés sur les CSV locaux
+- Orders : 99 441 lignes, 8 colonnes brutes ; grain attendu : une commande par order_id.
+- CSV validé : 99 441 lignes, 11 colonnes ; 99 168 valid, 273 review.
+- Les règles ci-dessous détectent des incohérences potentielles. valid signifie seulement « aucune règle implémentée déclenchée ».
+- Le code compte les lignes, pas les order_id distincts : l'équivalence avec les commandes est vérifiée sur ce fichier sans doublons.
+- Les dates sont converties sur une copie en mémoire ; les valeurs manquantes sont conservées, sans imputation ni suppression automatique.
+
+| Colonne brute | Valeurs manquantes |
+|---|---:|
+| order_id | 0 |
+| customer_id | 0 |
+| order_status | 0 |
+| order_purchase_timestamp | 0 |
+| order_approved_at | 160 |
+| order_delivered_carrier_date | 1 783 |
+| order_delivered_customer_date | 2 965 |
+| order_estimated_delivery_date | 0 |
+
+| Règle implémentée | Détections |
+|---|---:|
+| missing_order_id | 0 |
+| missing_customer_id | 0 |
+| duplicate_order_id | 0 |
+| unknown_customer | 0 |
+| invalid_order_status | 0 |
+| missing_delivery_date | 8 |
+| missing_approval_date | 14 |
+| missing_carrier_date | 2 |
+| shipping_before_purchase | 166 |
+| delivery_before_shipping | 23 |
+| delivery_before_purchase | 0 |
+| estimated_delivery_before_purchase | 0 |
+| delivery_before_approval | 61 |
+| invalid_order_purchase_timestamp | 0 |
+| invalid_order_approved_at | 0 |
+| invalid_order_delivered_carrier_date | 0 |
+| invalid_order_delivered_customer_date | 0 |
+| invalid_order_estimated_delivery_date | 0 |
+
+Les trois règles de dates manquantes concernent seulement les commandes delivered. Les comparaisons chronologiques s'appliquent à tous les statuts et ne déclenchent pas sur NaT. Les cinq règles invalid_* détectent une valeur non nulle impossible à convertir.
+
+- Contrôles en mémoire : aucun doublon exact, order_id dupliqué, customer_id dupliqué dans orders ou dans customers ; aucune référence client inconnue.
+- Les identifiants nuls, vides ou composés d'espaces sont couverts par missing_order_id/missing_customer_id ; aucun déclenchement ici.
+- 274 déclenchements de règles pour 273 lignes review : le code agrège les règles par ligne sans additionner leurs détections pour calculer review_orders.
+- Écarts temporels positifs recalculés, en heures :
+
+| Incohérence | Nombre | Médiane | Maximum |
+|---|---:|---:|---:|
+| Expédition avant achat | 166 | 0,5999 | 4 109,0981 |
+| Livraison avant transporteur | 23 | 39,8644 | 386,3081 |
+| Livraison avant approbation | 61 | 24,8233 | 167,7517 |
+
+## Vérifications réellement exécutées pendant cet audit
+- .venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider : 6 passed in 1.00s (quatre tests validateur + deux environnement).
+- .venv/Scripts/python.exe -B -m pip check : No broken requirements found.
+- Appel direct de validate_orders() sur CSV lus : rapport recalculé et comparé au JSON existant ; comparaison des trois colonnes de qualité au CSV existant, concordance.
+- main() non exécuté : aucune réécriture des sorties. Aucun CSV brut, notebook ou fichier de test modifié.
+- Versions installées lues : pandas 3.1.0, numpy 2.4.6, pytest 9.1.1, ipykernel 7.4.0. Paquets notebook et jupyterlab absents ; leur absence n'empêche pas les notebooks VS Code avec ipykernel.
+- Espace C: mesuré : 7,475 Gio. Aucune installation ou téléchargement.
+- Essais ponctuels en mémoire : date d'achat absente reste valid sur un exemple sinon cohérent ; deux lignes de même order_id donnent review_orders=2 et duplicate_order_id=2.
+- Contrôle documentaire : relecture et git diff --check exécutés ; aucune erreur, sortie 0.
+
+## Écarts et limites constatés
+- requirements.txt ne déclare ni Pandas ni l'environnement notebook ; pip check valide les paquets présents, pas la reproductibilité depuis ce fichier. Correction à autoriser séparément.
+- Le notebook construit quality_issues avec cinq règles avant les ajouts finaux et ne reconstruit pas la liste ensuite : ses totaux finaux concordent, mais ses motifs ne doivent pas être assimilés à ceux du pipeline.
+- Le notebook examine approval_before_purchase (0 dans sa sortie sauvegardée) ; cette règle exploratoire n'est pas intégrée au validateur.
+- Le validateur ne signale pas une date d'achat ou date estimée absente si elle est déjà nulle. Les dates non convertibles deviennent NaT sur la copie et sont signalées par invalid_*.
+- Les doublons de customer_id dans customers sont comptés dans le rapport sans rendre une commande review. Les doublons exacts et ceux de customer_id dans orders sont contrôlés dans l'exploration, pas par des règles dédiées du pipeline.
+- Le rapport compte les lignes impliquées dans duplicate_order_id (keep=False), pas les identifiants distincts ni uniquement les occurrences excédentaires.
+- Pas de chargement par lots : deux DataFrames complets et copies en mémoire. Aucun benchmark mémoire réalisé ; ne pas généraliser aux fichiers volumineux.
+- Les dates n'ont pas de fuseau explicite ; aucune conversion UTC justifiée à ce stade.
+
+## Prochaine petite tâche recommandée (accord requis)
+- Compléter les tests du validateur orders : anomalie multiple sur une ligne, identifiants manquants/vides/dupliqués, statuts invalides, dates invalides, colonnes obligatoires et non-mutation des entrées.
+- Critère prioritaire : une ligne avec plusieurs motifs compte une seule fois dans review_orders, avec quality_issue_count et quality_issues cohérents. Définir séparément le comportement attendu pour les doublons et dates obligatoires manquantes avant de changer le code.
+
+## Tâches restantes de phase 1
+- Rendre les dépendances Pandas et notebook reproductibles, après accord et vérification de compatibilité ; ne rien installer pour l'audit.
+- Compléter les tests manquants des règles temporelles et des cas limites (table vide, valeurs NaT, schémas incomplets).
+- Formaliser les contrôles structurels et le grain ; ne pas supprimer/dédoublonner sans décision explicite.
+- Mettre à jour le notebook pour harmoniser les motifs si demandé, en conservant la séparation exploration/pipeline.
+- Créer le dictionnaire des données et le schéma source (absents actuellement), documenter provenance/licence et conventions de dates.
+- Explorer customers et payments progressivement ; pas de validation customers commencée par cette intervention.
+- Envisager des helpers partagés seulement après identification de règles communes réelles.
+- Phase 2 PostgreSQL non commencée ; accord requis avant toute nouvelle phase.
+
+## Historique antérieur conservé
+Les bilans de phase 0 et de migration ci-dessous sont des états historiques. Les mentions de phase 1 non commencée ou d'absence de dataset ne décrivent plus le dépôt actuel.
+
+## Bilan précédent — phase 0
+
+## État actuel — 2026-10-23
+- Phase : 0 ; tâche : clôture documentaire sur C: ; statut : DONE.
+- Phase 1 : non commencée, accord explicite requis.
+- Projet officiel : C:\Users\PC\Documents\Projets stage\ecommerce-data-platform.
+- Utiliser exclusivement son .venv ; aucun accès ni modification de D:.
+
+## Validation technique — audit du 2026-10-23
+- Python 3.11.0 ; interpréteur et préfixe du venv sur C:.
+- pip check : No broken requirements found ; pytest : 2 passed in 0.05s.
+- Dépendances verrouillées présentes : pytest 9.1.1, colorama 0.4.6, iniconfig 2.3.1, packaging 26.3, pluggy 1.7.0, Pygments 2.21.0 ; outils : pip 22.3, setuptools 65.5.0.
+- Espace libre C: : 7,974 Gio à l'audit ; revérifier avant téléchargement ou installation.
+- Git : main au commit 7df7e27, aucun écart avec la référence locale origin/main ; aucun fetch exécuté.
+- Distant : https://github.com/LaassriaAbdellah/ecommerce-data-platform ; branche backup-local-before-sync présente.
+- Working tree propre avant cette mise à jour ; premier commit et synchronisation déjà réalisés.
+- Venv, secrets et données ignorés. Aucun dataset ni pipeline métier.
+- VS Code : chemin relatif ${workspaceFolder}/.venv/Scripts/python.exe configuré ; sélection effective à confirmer manuellement.
+- RAM : 8 Go annoncés, mesure CIM non obtenue. Docker/WSL2/ports restent à vérifier avant services ; aucun service lourd requis pour cette clôture.
+
+## Intervention documentaire — 2026-10-23
+- Phase 0 ; tâche : actualiser les trois documents ; statut : DONE.
+- Fichiers modifiés : README.md, docs/PROGRESS.md, docs/ARCHITECTURE_DECISIONS.md.
+- Résultats Python : audit précédent de ce jour ; pas de nouvelle suite métier pour cette modification.
+- Validation documentaire : relecture et git diff --check : aucune erreur (sortie 0).
+- Aucun commit, téléchargement, installation, changement de code ou accès à D:.
+
+## Prochaine action
+- Confirmer la sélection du venv dans VS Code et la compréhension de la phase 0.
+- Après accord pour la phase 1 : préparer l'acquisition des CSV Olist orders, customers et payments, vérifier provenance, conditions et espace requis avant téléchargement, puis proposer le profilage en lecture seule.
+
+## Historique conservé
+Les sections suivantes décrivent les états passés. Les mentions de dépendances absentes, de commit en attente ou de reprise sur D: sont remplacées par le bilan ci-dessus. Les preuves des incidents restent conservées sans diagnostic matériel définitif.
+
+## Suivi initial du 2026-10-22
 
 ## État actuel
 - Phase : 0
