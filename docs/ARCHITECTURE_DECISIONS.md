@@ -1,5 +1,19 @@
 # Décisions techniques
 
+## 2026-10-23 — Mutualisation des validations et grain Customers
+
+- Séparer les helpers structurels (common.py), l'agrégation des résultats (quality_engine.py) et les règles métier de chaque table. Orders et Customers réutilisent les composants existants.
+- Le moteur exige des masques Series booléens avec index identique au DataFrame. Les valeurs nulles d'un masque sont traitées comme False ; prévoir des règles de valeurs manquantes explicites.
+- Le rapport générique compte des lignes (total_rows, valid_rows, review_rows) avec entity et anomalies_by_rule. Orders conserve ses clés historiques via adaptation ; Customers utilise le format générique.
+- check_duplicate_ids() marque toutes les occurrences (keep=False). Les validateurs excluent les identifiants absents de la règle de doublon ; pas de dédoublonnage ou suppression automatique.
+- Customers a pour clé attendue customer_id. customer_unique_id peut se répéter légitimement ; 96 096 identifiants distincts et 2 997 récurrents observés sur 99 441 lignes.
+- Préfixe postal conservé comme texte à la lecture (dtype string), jamais converti en nombre ni complété arbitrairement par des zéros. La règle vérifie cinq chiffres ; les États sont contrôlés dans une liste de 27 codes.
+- Sept règles Customers présentes : identifiants requis/uniques, ville et État non vides, format postal et État autorisé. Zéro anomalie signifie seulement satisfaction de ces règles, pas exactitude géographique garantie.
+- Les quatre sorties Orders/Customers sont dérivées et régénérables ; audit via fonctions en mémoire sans réécrire les sorties existantes.
+- 21 tests réussis à l'audit ; couverture encore partielle. Requirements de phase 1 à compléter séparément ; pas d'installation pendant cette intervention.
+- Prochaine demande : exploration order_items seulement après accord, sans démarrer une phase suivante ni changer la roadmap. Documenter le grain composite et éviter le double comptage avec payments.
+- Les décisions antérieures sur le brut, la traçabilité, la séparation Jupyter/Python et l'usage exclusif de C: restent applicables.
+
 ## 2026-10-23 — Qualité des commandes Olist (phase 1)
 
 ### Séparer les sources et les résultats

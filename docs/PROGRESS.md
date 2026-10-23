@@ -1,5 +1,35 @@
 # Progression — E-Commerce Data Platform
 
+## Bilan courant — refactorisation et Customers — 2026-10-23
+- Phase 1 : IN_PROGRESS. Tâche documentaire de cette intervention : DONE.
+- Fichiers modifiés par cette intervention : docs/PROGRESS.md, docs/ARCHITECTURE_DECISIONS.md, README.md. AGENTS.md inchangé : aucune progression à corriger dans la roadmap elle-même.
+- common.py présent avec check_required_columns(), check_missing_ids(), check_duplicate_ids(), check_invalid_dates().
+- quality_engine.py présent : apply_quality_rules() contrôle les masques (Series booléenne, index identique), remplace les valeurs indéterminées par False, génère les trois colonnes de qualité et un rapport générique entity/total_rows/valid_rows/review_rows/anomalies_by_rule.
+- Orders réutilise common et le moteur, puis adapte le rapport aux clés historiques total_orders/valid_orders/review_orders ; règles et résultats locaux inchangés.
+- Customers : validate_customers() et main() présents ; sept règles : missing_customer_id, duplicate_customer_id, missing_customer_unique_id, missing_customer_city, missing_customer_state, invalid_zip_code, invalid_customer_state.
+- Grain Customers : customer_id identifie la ligne client liée à une commande ; customer_unique_id rapproche un même client sur plusieurs commandes et ne doit pas être unique.
+- Recalcul sur le CSV : 99 441 lignes, 96 096 customer_unique_id distincts ; 2 997 de ces identifiants apparaissent sur plusieurs lignes. Il s'agit de clients récurrents déduits du grain Olist, pas de 2 997 lignes dupliquées.
+- Notebook existant notebooks/01_data_exploration.ipynb : cellules Customers présentes (lecture avec préfixe postal texte et contrôles de colonnes) ; notebook inspecté, non réexécuté.
+- Lecture Customers avec dtype={"customer_zip_code_prefix": "string"} pour conserver les zéros initiaux. Format attendu : cinq chiffres ; 27 codes d'État autorisés.
+- Résultats en mémoire : Customers 99 441 valid_rows, 0 review_rows, sept règles à zéro. Orders 99 441 total_orders, 99 168 valid_orders, 273 review_orders.
+- Quatre sorties existantes vérifiées : orders_validated.csv, orders_quality_report.json, customers_validated.csv, customers_quality_report.json sous data/processed/. Rapports JSON et trois colonnes de qualité identiques aux recalculs.
+- Aucun main() relancé : aucune sortie ni source brute réécrite pendant l'audit.
+- Commande exécutée : .venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider ; 21 passed in 0.80s : environnement 2, Orders 5, common 4, moteur 5, Customers 5.
+- Le test moteur nommé test_multiple_anomalies couvre plusieurs lignes/règles mais pas deux motifs sur la même ligne ; ce cas est couvert au niveau Orders par le test multi-anomalies.
+- Espace C: mesuré : 7,595 Gio ; aucune installation ou téléchargement. requirements.txt reste limité à la phase 0, Pandas et ipykernel non déclarés : reconstruction de l'environnement de phase 1 encore incomplète.
+- Validation documentaire : relecture et git diff --check : aucune erreur (sortie 0).
+- Aucun code, test, notebook ou donnée modifié ; changements préexistants préservés. Aucun commit/push ni accès à D:.
+
+## Prochaine étape (non commencée, accord requis)
+- Demande de l'étudiant : explorer ensuite olist_order_items_dataset.csv, en lecture seule, et définir les règles avant de créer son validateur.
+- Commencer par le grain attendu (order_id, order_item_id), les types, nulls, doublons et références ; ne pas joindre directement items et paiements.
+- Cette exploration anticipée ne modifie pas l'ordre des phases : payments, dictionnaire de données, schéma source et provenance/licence restent à compléter en phase 1 ; pas de dbt, modélisation de phase 3 ou PostgreSQL lancé.
+- Restent : dépendances reproductibles ; couverture des règles/cas limites encore partielle ; date d'achat absente non signalée et dates sans fuseau explicite, limites antérieures non corrigées.
+- La suite est proposée uniquement ; aucun order_items exploré ou validé pendant cet audit.
+
+## Historique des interventions précédentes
+Les nombres de tests et les mentions de Customers non commencé ci-dessous sont historiques et remplacés par le bilan courant.
+
 ## Test multi-anomalies — 2026-10-23
 - Phase 1 ; tâche autorisée : test_multiple_issues_count_order_once ; statut : DONE.
 - Fichiers modifiés : tests/test_orders_validator.py et docs/PROGRESS.md.
