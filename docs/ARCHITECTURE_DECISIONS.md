@@ -1,0 +1,1 @@
+# Decisions phase 0 : conserver Python 3.11 et .venv. Utiliser requirements.txt/pip, plus simple que le packaging pyproject.toml pour commencer. Installer seulement pytest, verrouiller apres tests. Git local sans commit ni distant. Services lourds differes pour 8 Go RAM. Aucun dataset ni pipeline.
