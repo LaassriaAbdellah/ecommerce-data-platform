@@ -28,3 +28,4 @@ data/*
 logs/
 .DS_Store
 Thumbs.db
+.migration-temp/
