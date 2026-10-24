@@ -27,9 +27,11 @@ def check_duplicate_ids(df, column):
     return df[column].duplicated(keep=False)
 
 
-def check_invalid_dates(df, date_columns):
+def check_invalid_dates(df, date_columns, *, date_format=None):
     """
     Convertit les dates et détecte les valeurs non convertibles.
+
+    date_format est optionnel ; None conserve le comportement existant.
 
     Retourne un DataFrame converti et un dictionnaire
     contenant les règles de validation.
@@ -39,7 +41,9 @@ def check_invalid_dates(df, date_columns):
 
     for column in date_columns:
         original = result[column]
-        converted = pd.to_datetime(original, errors="coerce")
+        converted = pd.to_datetime(
+            original, errors="coerce", format=date_format
+        )
 
         rules[f"invalid_{column}"] = (
             original.notna() & converted.isna()

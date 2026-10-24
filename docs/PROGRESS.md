@@ -1,5 +1,352 @@
 # Progression — E-Commerce Data Platform
 
+## Bilan courant — validateur Category Translation — 2026-10-24
+
+- Phase : 1, IN_PROGRESS ; tâche autorisée : neuvième validateur Category Translation et tests ; statut : DONE.
+- Créés : src/validation/category_translation_validator.py, tests/test_category_translation_validator.py, data/processed/category_translation_validated.csv et category_translation_quality_report.json.
+- Modifiés parmi les fichiers existants : README.md et docs/PROGRESS.md uniquement ; changements Git antérieurs préservés.
+- validate_category_translation(translations, products) réutilise check_required_columns(), check_missing_ids(), check_duplicate_ids() et apply_quality_rules(), sans changer leur comportement.
+- Quatre règles : missing_product_category_name, missing_product_category_name_english, duplicate_product_category_name, conflicting_category_translation.
+- Doublon et contradiction sont exclusifs : toutes les lignes d'une clé portugaise renseignée ayant plusieurs traductions distinctes non vides déclenchent contradiction uniquement ; autres répétitions de clé renseignée déclenchent doublon uniquement. Comparaisons exactes, sans normalisation des sources.
+- Absences indépendantes ; clé absente exclue des deux motifs de clé. Une traduction absente dans un groupe contradictoire peut avoir deux problèmes distincts, pas deux motifs pour la même répétition. quality_issue_count = règles indépendantes par ligne ; review_rows = union des lignes concernées.
+- Cette politique précise la proposition de l'exploration historique, qui autorisait encore le chevauchement doublon/contradiction. Aucun changement du moteur nécessaire.
+- Unicité anglaise non imposée ; partage de libellé anglais, variations d'écriture et couverture Products sont des indicateurs séparés.
+- Exécution réelle : .venv/Scripts/python.exe -B -m src.validation.category_translation_validator ; 71 total_rows, 71 valid_rows, 0 review_rows ; quatre anomalies par règle à zéro.
+- business_indicators : deux catégories non traduites, 13 produits : pc_gamer=3 et portateis_cozinha_e_preparadores_de_alimentos=10. Produits sans catégorie comptés séparément : 610.
+- Zéro catégorie traduite inutilisée, anglais partagé ou produit sur une catégorie contradictoire. Zéro groupe de variantes portugaises/anglaises, espace de bordure ou motif inhabituel.
+- Couverture = au moins une paire PT/EN complète ; contradictions suivies séparément, sans résolution automatique. Produits sans catégorie exclus des non-traduits ; indicateurs et règles explicités dans rule_semantics.
+- Variantes par casefold/NFKD/sans accents/non-alphanumériques en underscores ; aucune écriture sur les sources et aucune garantie de correction linguistique.
+- Tests ciblés réellement exécutés : 29 passed in 1.85s. Cas requis, répétitions/contradictions exclusives, absences indépendantes, anglais partagé, couverture/produits sans catégorie, traductions inutilisées, variantes, index/non-mutation, tables vides et export protégeant les sources.
+- Suite complète : .venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider ; 569 passed in 18.06s (540 existants + 29 nouveaux cas). pip check : No broken requirements found.
+- Contrôles : 56 empreintes SHA256 protégées inchangées ; CSV 71 lignes/cinq colonnes, deux colonnes source identiques après relecture ; statuts et motifs cohérents. Les deux nouvelles sorties sont ignorées par Git.
+- Espace initial C: 3,135 Gio ; aucune installation. Aucun autre validateur/helper/test/notebook existant ou ancienne sortie modifié ; aucune traduction inventée ou ajoutée.
+- Aucun accès D:, commit/push ou démarrage de phase 2.
+- Prochaine action : attendre validation du neuvième validateur et de sa sémantique de comptage. Phase 1 toujours en cours ; prochaine tâche à convenir, sans passage automatique à la phase 2.
+
+## Historique antérieur
+Les mentions suivantes de validateur Category Translation absent et les propositions de comptage décrivent les étapes précédentes.
+
+## Bilan courant — exploration Category Translation — 2026-10-24
+
+- Phase : 1, IN_PROGRESS ; tâche autorisée : exploration de product_category_name_translation.csv uniquement ; statut : DONE.
+- Créés : notebooks/08_category_translation_exploration.ipynb et docs/CATEGORY_TRANSLATION_EXPLORATION.md. Modifié parmi les fichiers existants : docs/PROGRESS.md uniquement ; changements Git préexistants préservés.
+- Python 3.11.0 / Pandas 3.1.0 du .venv sur C: ; espace libre initial 3,137 Gio. Source de 2 613 octets ; aucune installation.
+- 71 lignes, deux colonnes str ; zéro null, champ vide ou espace seul, doublon complet, catégorie portugaise répétée ou traduction anglaise répétée.
+- 71 catégories portugaises et 71 libellés anglais distincts. Zéro catégorie avec traductions contradictoires ; zéro libellé anglais partagé entre plusieurs catégories.
+- Aucun espace en bordure/intérieur, caractère non ASCII, majuscule ou motif inhabituel selon le motif descriptif de slug. Aucune collision sous normalisation casefold/NFKD/sans accents/non-alphanumériques en underscores. Aucune normalisation persistée.
+- Suffixes numériques : eletrodomesticos_2/home_appliances_2 et casa_conforto_2/home_comfort_2 ; pas d'erreur présumée.
+- Products : 32 951 produits, 73 catégories renseignées distinctes, 610 produits sans catégorie. Deux catégories non traduites : pc_gamer (3 produits), portateis_cozinha_e_preparadores_de_alimentos (10), soit 13 produits.
+- 32 328 produits traduits ; aucune catégorie traduite inutilisée et aucune correspondance ambiguë. Jointure gauche many_to_one conserve 32 951 lignes ; 623 lignes sans correspondance = 610 catégories absentes + 13 catégories renseignées non traduites.
+- Grain proposé : correspondance par catégorie portugaise. Unicité anglaise observée non imposée ; plusieurs catégories peuvent légitimement partager un libellé anglais.
+- Contrat proposé : deux colonnes, deux champs renseignés/non vides, clé portugaise unique et contrôle explicite des contradictions. Doublon exact de correspondance distinct d'une contradiction ; motifs potentiellement chevauchants, lignes à examiner non additionnées.
+- Indicateurs séparés : couverture Products, produits sans catégorie, traductions inutilisées, anglais partagé et variations d'écriture. Aucune traduction ajoutée, aucune correction/suppression ; validité linguistique non démontrée par ces contrôles.
+- Code complet enregistré du notebook exécuté avec Python, assertions de SHA256 et cardinalité réussies. JSON relu, cellules compilées et sorties vides vérifiées ; aucun noyau Jupyter lancé.
+- Tests réellement exécutés : .venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider ; 540 passed in 27.10s. pip check : No broken requirements found.
+- 55 empreintes SHA256 protégées inchangées : CSV sources, anciennes sorties, code/tests/notebooks existants.
+- Aucun neuvième validateur ou sortie créé ; aucun autre validateur/helper/test/notebook existant modifié ; aucun accès D:, installation, commit/push ou nouvelle phase.
+- Prochaine action : attendre la validation des résultats et du contrat avant développement du neuvième validateur. Phase 1 toujours en cours.
+
+## Historique antérieur
+Les mentions suivantes décrivent les étapes précédentes.
+
+## Bilan courant — validateur Geolocation — 2026-10-24
+
+- Phase : 1, IN_PROGRESS ; tâche autorisée : validateur Geolocation et tests ; statut : DONE.
+- Créés : src/validation/geolocation_validator.py, tests/test_geolocation_validator.py, data/processed/geolocation_validated.csv et geolocation_quality_report.json.
+- Modifiés parmi les fichiers existants : README.md et docs/PROGRESS.md uniquement ; autres changements Git préexistants préservés.
+- validate_geolocation(geolocation, sellers, customers) réutilise check_required_columns(), check_missing_ids(), VALID_STATES de Customers et apply_quality_rules(). Aucun helper/moteur/ancien validateur/test modifié.
+- Neuf règles : missing_geolocation_zip_code_prefix, invalid_geolocation_zip_code_prefix, missing_geolocation_lat, invalid_geolocation_lat, missing_geolocation_lng, invalid_geolocation_lng, missing_geolocation_city, missing_geolocation_state, invalid_geolocation_state.
+- Cinq colonnes obligatoires ; préfixe string de cinq chiffres ASCII ; latitude/longitude présentes, convertibles, finies dans [-90,90]/[-180,180], bornes inclusives ; ville non vide, État renseigné et reconnu. Absences exclues du motif invalide correspondant ; coordonnées booléennes refusées par conversion textuelle puis numérique.
+- Pas d'unicité du préfixe ni rejet des doublons complets, valeurs régionales ou fortes dispersions. Aucun padding, arrondi ou choix de point représentatif.
+- Performance : masques vectorisés, signatures uint16 et combinaisons distinctes calculées par NumPy. Moteur inchangé appelé sur les seuls motifs distincts (au plus 512), puis expansion des colonnes de qualité par position ; pas de boucle Python sur les lignes. Boucles limitées aux colonnes/règles/tables.
+- Équivalence complète au moteur original vérifiée sur les 512 combinaisons, répétées/mélangées avec index non unique ; test supplémentaire des masques booléens nullables.
+- Résultat réel : 1 000 163 total_rows et valid_rows ; 0 review_rows ; neuf anomalies par règle à zéro.
+- business_indicators : exact_duplicate_excess_rows=261831 ; prefixes_multiple_coordinates=17781 ; distinct_valid_prefix_coordinate_triples=720154 ; prefixes_multiple_cities=8556 ; prefixes_multiple_states=8 ; city_variant_groups_same_state=2128.
+- Dispersion par axe max-min sur paires valides et préfixes valides : maxima latitude 77,025708° et longitude 72,552315° ; médianes 0,014758° et 0,015757°. Unité degré, pas distance ; statistiques min/médiane/P95/P99/max, null pour groupes vides, sans seuil de rejet.
+- Couverture Sellers : 3 088/3 095 lignes ; sept lignes/sept préfixes absents ; 35 écarts d'État/89 de ville ; 16 776 préfixes Geolocation non observés dans Sellers.
+- Couverture Customers : 99 163/99 441 lignes ; 278 lignes/157 préfixes absents ; zéro écart d'État/24 de ville ; 4 178 préfixes Geolocation non observés dans Customers.
+- Couverture vectorisée par préfixes/paires distinctes, sans jointure brute ; référence à préfixe invalide distinguée des absences. Comparaisons ville/État avec valeurs exploitables sur préfixes connus uniquement. Méthodes et unités documentées, Geolocation ni officiel ni exhaustif.
+- Tests ciblés réellement exécutés : 79 passed in 8.94s. Cas requis, bornes inclusives, coordonnées booléennes/infinies, doublons et dispersion comme indicateurs, couverture bidirectionnelle, schémas, moteur équivalent, index/non-mutation, tables vides, export conservant les sources.
+- Suite complète : .venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider ; 540 passed in 18.92s (461 existants + 79 nouveaux cas). pip check : No broken requirements found.
+- Exécution réelle : .venv/Scripts/python.exe -B -m src.validation.geolocation_validator. Mesure perf_counter : lecture 2,590 s ; validation avec indicateurs 6,730 s ; export CSV 3,918 s. Pas un benchmark garanti ; pic mémoire non mesuré. Aucun blocage de performance constaté sur ce passage.
+- Lecture CLI à coordonnées string et villes/États category ; relecture de vérification par blocs de 100 000 lignes. CSV : 1 000 163 lignes/huit colonnes ; cinq champs sources identiques, 245 733 préfixes à zéro initial conservés. Sorties ignorées par Git.
+- 51 empreintes SHA256 protégées inchangées : datasets, anciennes sorties, code/tests/notebooks existants. Espace C: initial 3,206 Gio ; aucune installation.
+- Aucun CSV source, ancienne sortie ou ancien notebook modifié ; aucun accès D:, commit/push, nouveau dataset ou phase suivante.
+- Prochaine action : attendre la validation des résultats et méthodes Geolocation. Phase 1 toujours en cours ; pas de démarrage automatique de la suite.
+
+## Historique antérieur
+Les mentions suivantes de Geolocation non implémenté concernent les étapes précédentes.
+
+## Bilan courant — exploration Geolocation — 2026-10-24
+
+- Phase : 1, IN_PROGRESS ; tâche autorisée : exploration Geolocation uniquement ; statut : DONE.
+- Créés : notebooks/07_geolocation_exploration.ipynb et docs/GEOLOCATION_EXPLORATION.md. Modifié parmi les fichiers existants : docs/PROGRESS.md uniquement. Changements Git antérieurs préservés.
+- Python 3.11.0 / Pandas 3.1.0 du .venv sur C: ; espace libre initial 3,917 Gio. Aucune installation ni service lourd. Source 61 273 883 octets.
+- 1 000 163 lignes, cinq colonnes ; un tableau principal avec villes/États category et préfixes/coordonnées string. Mémoire profonde du seul tableau 206,615 Mio, pas le pic total. Hashes lus par blocs de 1 Mio.
+- Types inférés sur 1 000 lignes documentés comme échantillon ; contrôles de format, complétude et conversion sur toutes les lignes. Coordonnées converties Float64.
+- Aucun null du parseur, champ vide ou espace seul ; keep_default_na=False préserve la représentation source. Un seul libellé de ville avec espace en bordure, sans correction.
+- Doublons complets : 261 831 occurrences excédentaires ; 390 005 lignes impliquées ; 738 332 lignes complètes distinctes. Coordonnées sources comparées sans arrondi. Aucune suppression.
+- Préfixes : 19 015 distincts ; tous cinq chiffres ASCII ; zéro 00000. 245 733 lignes / 4 354 préfixes distincts avec zéro initial ; min 01001, max 99990, pas des seuils de validation.
+- 17 972 préfixes à plusieurs lignes ; lignes par préfixe médiane 29, P95 180, P99 353, max 1 146. 17 781 préfixes à plusieurs paires de coordonnées valides ; 720 154 triplets distincts préfixe/latitude/longitude.
+- Coordonnées : aucune absente, non convertible, infinie ou hors bornes mondiales inclusives latitude [-90,90], longitude [-180,180]. Aucune égale à zéro. Latitude min -36,605374/max 45,065933 ; longitude min -101,466766/max 121,105394. 1 336 latitudes et trois longitudes positives : indicateurs descriptifs.
+- Villes : 8 011 libellés bruts, 5 930 clés normalisées ; 2 128 groupes de variantes à État identique. Casefold/NFKD/sans accents/ponctuation en espaces/espaces réduits, sans écriture sur les sources.
+- Les 27 codes d'État/DF sont présents, aucun inconnu. 8 556 préfixes multivilles brutes et huit multi-États ; liste et exemples dans le rapport.
+- Dispersion : étendue max-min par axe et préfixe, en degrés, sur paires mondialement valides ; médiane latitude 0,014758°/longitude 0,015757°, maxima 77,025708°/72,552315°. Aucun seuil de rejet ni interprétation en kilomètres. Extrêmes et top dix décrits sans choisir de point représentatif.
+- Couverture par appartenance aux ensembles, sans jointure brute : Sellers 3 088/3 095 lignes couvertes, sept lignes/sept préfixes absents ; Customers 99 163/99 441, 278 lignes/157 préfixes absents.
+- Sur préfixes connus : Sellers 35 écarts d'État et 89 de ville normalisée ; Customers zéro écart d'État et 24 de ville. 3 078 vendeurs/98 890 clients ont un préfixe à plusieurs points valides ; aucun préfixe couvert sans point mondialement valide.
+- Geolocation ni officiel ni exhaustif. Sellers/Customers sans coordonnées individuelles : pas de comparaison point-à-point, ni localisation certaine déduite du préfixe. Couverture complète ne garantit pas cohérence des points.
+- Contrat proposé : cinq colonnes, préfixe renseigné de cinq chiffres, coordonnées présentes/convertibles/finies dans les bornes mondiales, ville/État renseignés et État reconnu. Pas d'unicité du préfixe ni rejet automatique des doublons, variantes ou dispersions ; aucune enveloppe arbitraire du Brésil.
+- Code complet enregistré du notebook exécuté avec Python, assertions SHA256 des trois sources réussies. JSON relu, cellules compilées, sorties vides vérifiées ; aucun noyau Jupyter lancé.
+- Tests réellement exécutés : .venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider ; 461 passed in 25.17s. pip check : No broken requirements found.
+- Contrôle final : 50 empreintes SHA256 protégées inchangées (sources, anciennes sorties, code/tests/notebooks existants). Aucun geolocation_validator.py ou CSV de sortie Geolocation.
+- Incident d'outillage : erreurs intermittentes de lancement du helper pendant l'écriture, relances par blocs vérifiés réussies. Aucun changement de Python ou dépendance.
+- Aucun validateur/helper/test existant modifié, aucun accès D:, téléchargement, commit/push ou nouvelle phase.
+- Prochaine action : attendre la validation du rapport, du grain et du contrat avant le validateur Geolocation. Phase 1 reste en cours.
+
+## Historique antérieur
+Les mentions suivantes de Geolocation non commencé concernent les interventions précédentes.
+
+## Bilan courant — validateur Reviews — 2026-10-24
+
+- Phase : 1, IN_PROGRESS ; tâche autorisée : validateur Reviews et tests ; statut : DONE.
+- Créés : src/validation/reviews_validator.py, tests/test_reviews_validator.py, data/processed/reviews_validated.csv et reviews_quality_report.json.
+- Modifiés parmi les fichiers existants : README.md et docs/PROGRESS.md uniquement ; changements Git antérieurs préservés.
+- validate_reviews(reviews, orders) réutilise les helpers de colonnes, absences, doublons, dates et apply_quality_rules() sans changer leur comportement. Aucun ancien validateur/helper/test modifié.
+- Neuf règles : missing_review_id, missing_order_id, duplicate_review_order, invalid_review_score, unknown_order, missing_review_creation_date, invalid_review_creation_date, missing_review_answer_timestamp, invalid_review_answer_timestamp.
+- Sept colonnes obligatoires ; paire unique (review_id, order_id), sans unicité imposée à review_id seul. Clés incomplètes exclues du motif de doublon ; absences de dates distinguées des dates invalides.
+- Note finie entière 1..5 ; booléens exclus. Dates converties via le helper avec format mixed, sur une copie uniquement ; colonnes sources préservées.
+- Orders : trois colonnes requises (ID, achat, livraison), ID complet et unique pour des comparaisons non ambiguës ; erreur explicite si référentiel invalide. Dates de livraison manquantes/non convertibles exclues des comparaisons, jamais remplies.
+- Exécution réelle : .venv/Scripts/python.exe -B -m src.validation.reviews_validator ; 99 224 total_rows, 99 224 valid_rows, 0 review_rows ; neuf anomalies par règle toutes à zéro.
+- business_indicators : titres absents 87 658 ; messages absents 58 274 ; deux commentaires absents 56 537 ; commandes multi-avis 547 ; plusieurs notes différentes 202 ; commandes sans avis 768.
+- Multiplicité sur paires complètes distinctes, références inconnues incluses. Notes comparées après conversion, groupes avec note invalide exclus. Présence d'avis indépendante de la validité note/date ; politique documentée dans indicator_methodology.
+- Chronologie : créations avant achat 74, réponses avant achat 63 ; créations avant livraison par horodatage 8 320, par jour calendaire 5 127 ; réponses avant livraison 4 795.
+- Paires comparables : création/achat et réponse/achat 99 224 chacune ; création/livraison et réponse/livraison 96 359 chacune. Créations avec commande connue sans livraison exploitable 2 865 ; créations à minuit 99 139.
+- answer_delay_days : 99 224 paires ; min 0,0892, médiane 1,6749, moyenne 3,1490, P95 6,9722, P99 22,0708, max 518,6992 jours ; zéro délai négatif/nul. Statistiques vides sérialisées null, JSON strict sans NaN.
+- Indicateurs et délais sans effet sur les colonnes de qualité. Timestamps Olist sans fuseau ; comparaison calendaire normalisée à minuit, précision documentée ; pas de seuil temporel ni interprétation en réponse du vendeur.
+- Tests ciblés : 80 passed in 3.14s. Cas valides/invalides, IDs partagés, paire dupliquée, notes booléennes/non finies/fractionnaires, dates absentes/invalides, commentaires facultatifs, indicateurs temporels, livraison inexploitable, référentiel ambigu, index/non-mutation, table vide et export préservant les sources.
+- Suite complète réellement exécutée : .venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider ; 461 passed in 23.83s (381 existants + 80 nouveaux cas). pip check : No broken requirements found.
+- Contrôles : 46 empreintes SHA256 protégées inchangées ; CSV 99 224 lignes/dix colonnes, sept colonnes source identiques après relecture ; CSV/JSON concordants et sorties Reviews ignorées par Git. Espace initial C: 3,941 Gio ; aucune installation.
+- Incident d'outillage : un lancement de commande a échoué dans le helper ; écriture des tests reprise et vérifications exécutées avec succès.
+- Aucun CSV source, ancienne sortie ou ancien notebook modifié ; aucun accès D:, commit/push ou travail Geolocation.
+- Prochaine action : attendre la validation des résultats et du contrat Reviews. Phase 1 toujours en cours ; aucune phase suivante commencée.
+
+## Historique antérieur
+Les mentions suivantes de Reviews non implémenté décrivent les étapes précédentes.
+
+## Bilan courant — exploration Reviews — 2026-10-24
+
+- Phase : 1, IN_PROGRESS ; tâche autorisée : exploration Reviews uniquement ; statut : DONE.
+- Créés : notebooks/06_reviews_exploration.ipynb et docs/REVIEWS_EXPLORATION.md. Modifié parmi les fichiers existants : docs/PROGRESS.md uniquement. Changements Git préexistants préservés.
+- Python 3.11.0 / Pandas 3.1.0 du .venv sur C: ; espace initial 3,968 Gio. Aucun paquet installé. Conventions notebook/rapport précédentes réutilisées.
+- Reviews : 99 224 lignes, sept colonnes, aucun doublon complet. Aucun ID manquant/vide ; 98 410 review_id et 98 673 order_id distincts.
+- 789 review_id répétés sur plusieurs commandes : 1 603 lignes, 814 occurrences excédentaires. Leurs cinq champs hors IDs sont identiques au sein de chaque groupe. Aucune cause métier présumée.
+- Les 99 224 paires (review_id, order_id) sont distinctes : clé candidate observée, à confirmer. Pas de règle unique(review_id) ou unique(order_id) automatique.
+- 547 commandes ont plusieurs review_id (1 098 lignes ; 543 commandes à deux avis, quatre à trois). 202 commandes ont plusieurs notes différentes. Grain à définir avant tout KPI ou politique de sélection.
+- Notes : 1=11 424 ; 2=3 151 ; 3=8 179 ; 4=19 142 ; 5=57 328. Aucune note manquante, non numérique, infinie, fractionnaire ou hors plage. Moyenne par ligne 4,0864, pas un KPI dédupliqué.
+- Titres : 87 656 nulls/vides + deux espaces seuls = 87 658 absences fonctionnelles ; messages : 58 247 + 27 = 58 274. Deux commentaires absents : 56 537 ; au moins un absent (union) : 89 395 ; deux présents : 9 829. Aucun texte corrigé.
+- Dates : toutes présentes et convertibles au format explicite. Créations du 2016-10-02 au 2018-08-31 ; réponses du 2016-10-07 au 2018-10-29. 99 139 créations à minuit, 85 à une autre heure ; fuseau non fourni.
+- Délai réponse moins création en jours : médiane 1,6749 ; P95 6,9722 ; P99 22,0708 ; maximum 518,6992. Zéro délai négatif/nul ; 4 914 au-delà de sept jours et 682 au-delà de 30 jours, repères descriptifs sans rejet. Ne pas supposer un délai de réponse du vendeur.
+- Relations Orders : zéro référence inconnue, jointure many_to_one conservant 99 224 lignes. 768 commandes sans avis dont 646 delivered. Répartition par statut dans le rapport.
+- Chronologie : 74 créations et 63 réponses avant achat ; 8 320 créations avant l'heure de livraison mais 5 127 avant son jour ; 4 795 réponses avant livraison ; 2 865 créations sans livraison enregistrée. Signaux séparés, précision et événements à interpréter ; groupes pouvant se chevaucher.
+- Contrat proposé : sept colonnes, IDs renseignés, paire candidate unique, note finie entière 1..5, dates renseignées/convertibles, référence Orders existante. Commentaires facultatifs ; répétitions, complétude et chronologie en indicateurs séparés. Validation utilisateur requise avant implémentation.
+- Code complet enregistré du notebook exécuté avec Python ; assertions de cardinalité/SHA256 réussies. Notebook JSON relu et cellules compilées, sans sorties enregistrées ni lancement Jupyter.
+- Tests réellement exécutés : .venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider ; 381 passed in 17.95s. pip check : No broken requirements found.
+- 45 empreintes SHA256 protégées inchangées : sources, anciennes sorties, code/tests/notebooks existants. Aucun reviews_validator.py ou CSV Reviews dérivé créé.
+- Incident d'outillage : relance d'une commande bloquée et écriture du notebook par une commande plus courte ; contrôle final de lancement relancé après une erreur intermittente du helper. Calcul final enregistré exécuté avec succès.
+- Aucun changement de validateur/helper/test, aucune installation, aucun accès D:, commit/push ou travail Geolocation.
+- Prochaine action : attendre la validation du rapport, du grain et du contrat Reviews avant le validateur. Phase 1 toujours en cours ; aucune phase suivante commencée.
+
+## Historique antérieur
+Les mentions suivantes de Reviews non commencé concernent les interventions précédentes.
+
+## Bilan courant — validateur Sellers — 2026-10-24
+
+- Phase : 1, IN_PROGRESS ; tâche autorisée : validateur Sellers et tests ; statut : DONE.
+- Créés : src/validation/sellers_validator.py, tests/test_sellers_validator.py, data/processed/sellers_validated.csv et sellers_quality_report.json.
+- Modifiés parmi les fichiers existants : README.md et docs/PROGRESS.md uniquement ; changements Git antérieurs préservés.
+- validate_sellers(sellers, items, customers) réutilise check_required_columns(), check_missing_ids(), check_duplicate_ids(), apply_quality_rules() et la liste VALID_STATES de Customers. Aucun ancien validateur/helper/test modifié.
+- Sept règles : missing_seller_id, duplicate_seller_id, missing_seller_zip_code_prefix, invalid_seller_zip_code_prefix, missing_seller_city, missing_seller_state, invalid_seller_state. Absences non recomptées comme formats invalides ; toutes les occurrences d'ID dupliqué renseigné sont signalées.
+- Quatre colonnes obligatoires ; préfixe string de cinq chiffres ASCII, sans correction ni padding. ID unique/renseigné, ville non vide, État dans les 27 codes existants. Noms/valeurs source conservés.
+- Contrôle inter-tables indépendant dans inter_table_checks.order_items_seller_references : pass/fail, lignes Item sans ID, références inconnues, IDs inconnus distincts et vendeurs non référencés. Pas d'attribution d'erreur à un vendeur existant pour un Item orphelin.
+- Résultat réel : 3 095 vendeurs, 3 095 valid, 0 review ; sept anomalies par règle à zéro. Contrôle références pass sur 112 650 lignes Item : zéro manque, référence inconnue ou vendeur non référencé.
+- business_indicators : city_variant_groups=6 ; city_variant_rows=723 ; prefixes_multiple_states=17 ; multiple_state_prefix_rows=45 ; prefixes_multiple_cities=34 ; multiple_city_prefix_rows=112 ; prefix_not_observed_in_customers_rows=91 ; customer_state_comparable_rows=3004 ; customer_state_difference_rows=35 ; customer_city_comparable_rows=3004 ; customer_city_difference_rows=89.
+- Méthode géographique documentée dans indicator_methodology : clé casefold/NFKD/sans accents/ponctuation en espaces/espaces réduits, groupes de variantes à État identique. Comparaison aux ensembles Customers, sans multiplication de lignes. Valeurs absentes/invalides exclues des comparaisons correspondantes ; groupes Customer sans valeur comparable exclus des écarts.
+- Customers n'est pas un référentiel officiel ; géographie sans effet sur quality_issue_count/status/issues. Groupes qui se chevauchent non additionnables ; les 723 lignes incluent les écritures usuelles.
+- Tests ciblés réellement exécutés : 83 passed in 3.40s. Cas de manques, doublons, préfixes invalides/zéros initiaux, 27 États, colonnes, références orphelines, indicateurs géographiques, non-mutation/index, tables vides et export préservant les sources.
+- Suite complète : .venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider ; 381 passed in 13.79s (298 existants + 83 nouveaux cas).
+- .venv/Scripts/python.exe -B -m pip check : No broken requirements found. Aucun paquet installé. Espace initial C: 3,507 Gio.
+- Vérifications : 41 empreintes SHA256 protégées inchangées ; CSV exporté de 3 095 lignes/sept colonnes, quatre colonnes source identiques après relecture typée ; 1 027 préfixes à zéro initial préservés. Sorties Sellers ignorées par Git.
+- Incidents d'outillage : échecs intermittents du lancement de commandes et commande de création de tests trop longue ; relances et écriture fractionnée ont réussi. Python du projet vérifié fonctionnel ; aucune réinstallation.
+- Aucun CSV source ou ancienne sortie modifié ; aucun accès D:, commit/push, changement Docker/WSL ou travail Reviews/Geolocation.
+- Prochaine action : attendre la validation des résultats et de la séparation qualité/géographie/références. Phase 1 toujours en cours ; aucune phase suivante commencée.
+
+## Historique antérieur
+Les mentions suivantes de Sellers non implémenté concernent les étapes précédentes.
+
+## Bilan courant — exploration Sellers — 2026-10-24
+
+- Phase : 1, IN_PROGRESS ; tâche autorisée : exploration Sellers uniquement ; statut : DONE.
+- Créés : notebooks/05_sellers_exploration.ipynb et docs/SELLERS_EXPLORATION.md. Modifié parmi les fichiers existants : docs/PROGRESS.md uniquement. Changements Git antérieurs préservés.
+- Conventions des explorations précédentes et règles Customers examinées. Python 3.11.0 / Pandas 3.1.0 du .venv sur C: ; espace initial 4,536 Gio. Aucune installation.
+- Sellers : 3 095 lignes, quatre colonnes, 3 095 seller_id distincts. Aucun manque, chaîne vide/espaces seuls, espace en bordure, doublon complet ou doublon d'ID. IDs tous hexadécimaux minuscules de 32 caractères, constat descriptif.
+- Préfixes : 2 246 distincts, tous cinq chiffres ASCII ; 1 027 commencent par zéro ; aucun 00000. Lecture string conservant les zéros, contrairement au type int64 inféré. Min 01001, max 99730 : pas de seuil de validation géographique déduit.
+- Villes : 611 libellés distincts, tous minuscules ; une ligne avec accent Unicode décomposé, 33 avec ponctuation. Six groupes de variantes sous une clé casefold/NFKD/sans accents/ponctuation remplacée/espaces réduits, à État identique ; 723 lignes dans ces groupes, pas 723 erreurs.
+- États : 23 codes présents, tous autorisés selon Customers ; AL, AP, RR, TO absents de l'échantillon. Distribution complète dans le rapport.
+- Géographie interne : 23 libellés de ville dans plusieurs États ; 17 préfixes multi-États concernant 45 vendeurs ; 34 préfixes multivilles. Signaux potentiels, sans correction ni statut d'erreur automatique.
+- Comparaison Customers (trois colonnes seulement, sans référentiel officiel) : 3 004 vendeurs ont un préfixe observé ; 91 non observés. Sur préfixes connus : 35 vendeurs avec État non observé, 89 avec clé de ville non observée. Groupes potentiellement chevauchants, ne pas additionner. Pas de lecture de Geolocation.
+- Relations : 112 650 lignes Item, 3 095 vendeurs distincts ; zéro identifiant Item manquant, référence inconnue ou vendeur non référencé. Jointure many_to_one sans multiplication. Lignes Item par vendeur : médiane 8, min 1, max 2 033 (pas des commandes distinctes).
+- Proposition à valider : quatre colonnes, ID non vide/unique, préfixe de cinq chiffres conservé en texte, ville/État renseignés, État dans les 27 codes ; intégrité seller_id côté Item à traiter séparément. Variantes, géographie et vendeurs sans article restent des indicateurs métier.
+- Notebook sans sorties sauvegardées ; tout le code enregistré exécuté avec Python, pas via noyau Jupyter. Assertions d'empreintes et de cardinalité réussies. Une impression console cp1252 échouait sur l'accent décomposé ; réexécution avec capture Unicode et JSON échappé réussie, sans modification des sources.
+- Tests réellement exécutés : .venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider ; 298 passed in 21.57s. .venv/Scripts/python.exe -B -m pip check : No broken requirements found.
+- Contrôles : 40 empreintes SHA256 protégées inchangées (données, anciennes sorties, code/tests/notebooks existants). Notebook JSON relu, cellules compilées et sorties vides vérifiées.
+- Aucun sellers_validator.py, CSV Sellers dérivé, changement de validateur/helper/test existant, installation, accès D:, commit ou push.
+- Prochaine action : attendre la validation des résultats et règles proposées avant le validateur Sellers. Phase 1 toujours en cours ; aucune autre exploration commencée.
+
+## Historique antérieur
+Les interdictions de commencer Sellers ci-dessous concernent les interventions précédentes.
+
+## Bilan courant — validateur Products — 2026-10-24
+
+- Phase : 1, IN_PROGRESS ; tâche autorisée : validateur Products et tests ; statut : DONE.
+- Créés : src/validation/products_validator.py, tests/test_products_validator.py, data/processed/products_validated.csv et data/processed/products_quality_report.json.
+- Modifiés parmi les fichiers existants : README.md et docs/PROGRESS.md. Les autres changements Git préexistants sont préservés.
+- validate_products(products, translations) réutilise check_required_columns(), check_missing_ids(), check_duplicate_ids() et apply_quality_rules(), sans modifier les helpers ni les quatre validateurs existants.
+- Neuf colonnes Products obligatoires ; product_id non vide et unique. Valeurs descriptives et physiques absentes autorisées (null, vide ou espaces). Nombres renseignés convertibles, finis, >=0 ; trois compteurs entiers. Booléens refusés. Aucun seuil maximal ; noms Olist lenght préservés.
+- Neuf règles : missing_product_id, duplicate_product_id, invalid_product_name_lenght, invalid_product_description_lenght, invalid_product_photos_qty, invalid_product_weight_g, invalid_product_length_cm, invalid_product_height_cm, invalid_product_width_cm. Toutes à zéro sur la source réelle.
+- Exécution réelle : .venv/Scripts/python.exe -B -m src.validation.products_validator ; total_rows=32951, valid_rows=32951, review_rows=0. CSV : 32 951 lignes et 12 colonnes ; colonnes sources conservées, trois colonnes de qualité ajoutées.
+- business_indicators : missing_category_rows=610 ; missing_descriptive_metadata_rows=610 ; missing_physical_data_rows=2 ; products_with_any_missing_field_rows=611 ; zero_product_weight_rows=4 ; untranslated_category_rows=13 ; untranslated_distinct_categories=2.
+- Métadonnées descriptives : les trois compteurs, catégorie comptée séparément. Union des manques sur les neuf champs, sans addition des groupes qui se chevauchent. Indicateurs sans effet sur quality_status/quality_issue_count/quality_issues.
+- Catégorie absente exclue des catégories non traduites ; traduction présente seulement si les noms source et anglais sont renseignés. Appartenance sans jointure ni multiplication des lignes.
+- Statistiques descriptives : min, médiane, P99 par interpolation linéaire et max, sur les valeurs présentes structurellement valides de chaque colonne ; aucun seuil de rejet. Statistiques vides sérialisées en null, JSON strict sans NaN.
+- Tests ciblés réellement exécutés : 132 passed in 7.54s. Cas valides/invalides, schémas, doublons, manques autorisés, nombres/fractions/infinis/booléens, zéros, traductions, union, extrêmes, non-mutation, table vide et exports temporaires.
+- Suite complète : .venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider ; 298 passed in 13.40s (166 existants + 132 nouveaux cas).
+- .venv/Scripts/python.exe -B -m pip check : No broken requirements found. Aucune installation ; espace initial C: 5,557 Gio.
+- Vérifications : CSV/JSON exportés concordants ; 35 empreintes SHA256 protégées inchangées (sources, anciennes sorties, code/tests/notebooks existants). Les deux nouvelles sorties sont ignorées par Git.
+- Aucun CSV source, ancien validateur, helper ou test existant modifié. Aucun accès D:, commit/push, installation ou autre dataset démarré.
+- Prochaine action : validation des résultats et de la distinction anomalie/complétude par l'étudiant. Ne pas commencer Sellers, Reviews, Geolocation ou une nouvelle phase sans accord. La phase 1 reste en cours ; dictionnaire, schéma source, provenance/licence et contrôles inter-tables restent notamment à compléter.
+
+## Historique antérieur
+Les mentions suivantes de Products non implémenté décrivent les étapes précédentes.
+
+## Bilan courant — exploration Products — 2026-10-24
+- Phase 1 : IN_PROGRESS ; tâche autorisée : exploration Products ; statut : DONE.
+- Créés : notebooks/04_products_exploration.ipynb et docs/PRODUCTS_EXPLORATION.md. Modifié : docs/PROGRESS.md uniquement parmi les fichiers existants.
+- Conventions et explorations précédentes examinées ; Python 3.11.0 / Pandas 3.1.0 du venv sur C: ; espace libre initial 5,532 Gio. Aucune installation.
+- Products : 32 951 lignes, neuf colonnes et autant de product_id distincts. Aucun ID manquant/vide, doublon exact ou doublon d'ID.
+- 610 produits ont simultanément catégorie, product_name_lenght, product_description_lenght et product_photos_qty absents (1,8512 %).
+- Deux produits ont poids et trois dimensions absents ; un chevauchement avec le groupe précédent, donc 611 produits avec au moins un manque.
+- Les valeurs source vides correspondent aux nulls Pandas, pas à des manques supplémentaires ; aucune chaîne non vide uniquement composée d'espaces.
+- Aucun nombre renseigné négatif, non convertible, infini ou fractionnaire. Sept colonnes numériques float64 à cause des valeurs absentes.
+- Quatre product_weight_g égaux à zéro ; aucun zéro renseigné dans les autres mesures/compteurs. Les poids nuls ne sont pas classés automatiquement comme erreurs.
+- 73 catégories renseignées ; distribution complète et statistiques numériques dans le rapport. product_name_lenght et product_description_lenght gardent leur orthographe source.
+- Relations : tous les product_id des 112 650 lignes Order Items existent ; les 32 951 produits sont tous référencés. Aucun produit inutilisé dans ce fichier, sans en faire une règle obligatoire pour un catalogue futur.
+- Traduction : 71 catégories sources uniques sans manque ; deux catégories non traduites : pc_gamer (3 produits) et portateis_cozinha_e_preparadores_de_alimentos (10 produits). Cela concerne 24 lignes Item ; les 610 catégories absentes concernent 1 603 lignes Item.
+- Produits sans poids/dimensions : 18 lignes Item concernées. Jointures many_to_one sans multiplication.
+- Proposition non implémentée : schéma et clé obligatoires ; nombres présents convertibles, finis et >=0 ; compteurs descriptifs/photos entiers ; champs absents autorisés sous politique explicite à valider.
+- Catégories absentes/non traduites, données physiques absentes, poids nuls, valeurs extrêmes et produits non commandés proposés comme indicateurs métier séparés. Aucune traduction, mesure ou borne maximale inventée.
+- Notebook fourni sans sorties sauvegardées ; son code est exécuté via Python pour audit, pas par un noyau Jupyter.
+- Tests exécutés : .venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider ; 166 passed in 3.97s. pip check : No broken requirements found.
+- Contrôles finaux : code enregistré du notebook exécuté dans Python, résultat identique au premier calcul ; empreintes SHA256 des 34 fichiers protégés inchangées ; git diff --check sans erreur.
+- Aucun validateur Products, CSV de sortie Products ou nouveau test créé. Sources, anciennes sorties, validateurs, helpers, tests et anciens notebooks inchangés ; aucun commit/push, téléchargement ou accès D:.
+- Prochaine action : validation des résultats et des politiques de manques/zéros avant développement du validateur. La phase 1 reste en cours ; aucun autre dataset démarré.
+
+## Historique antérieur
+Les mentions suivantes de Products non commencé se rapportent aux étapes précédentes.
+
+## Bilan courant — validateur Payments — 2026-10-24
+- Phase 1 : IN_PROGRESS ; tâche autorisée : validateur Payments et tests ; statut : DONE.
+- Créés : src/validation/payments_validator.py, tests/test_payments_validator.py, data/processed/payments_validated.csv et payments_quality_report.json.
+- Modifiés pendant cette intervention : README.md et docs/PROGRESS.md uniquement parmi les fichiers existants. Les autres changements Git étaient préexistants et sont préservés.
+- validate_payments(payments, orders) réutilise check_required_columns(), check_missing_ids(), check_duplicate_ids() et apply_quality_rules(), sans modifier les helpers ni les trois autres validateurs.
+- Sept règles : missing_order_id, duplicate_order_payment, unknown_order, invalid_payment_sequential, invalid_payment_installments, invalid_payment_value, missing_payment_type.
+- Clé (order_id, payment_sequential) comparée après conversion numérique du compteur : 1 et "1" équivalents. Toutes les occurrences signalées, sauf clés absentes/invalides déjà signalées par leur règle. Plusieurs paiements distincts par commande acceptés.
+- Séquence : nombre fini entier >0 ; échéances : nombre fini entier >=0 ; montant : nombre fini >=0. Booléens refusés ; conversion réservée aux contrôles, colonnes sources préservées.
+- payment_type non vide uniquement : pas de liste fermée ajoutée. not_defined et une nouvelle catégorie non vide ne déclenchent pas une anomalie structurelle.
+- Indicateurs ajoutés dans une section business_indicators distincte du rapport générique, sans colonne supplémentaire dans le CSV et sans effet sur les trois colonnes de qualité.
+- Indicateurs : zero_payment_value_rows=9, zero_payment_installments_rows=2, not_defined_payment_type_rows=3 ; orders_sequence_not_starting_at_1=80 (commandes distinctes).
+- Les zéros ne sont comptés que pour les nombres structurellement acceptables ; un booléen False ne devient pas un montant zéro métier.
+- Indicateur de début de séquence calculé sur les groupes à ID renseigné et compteurs valides ; toute commande comportant un compteur invalide/absent est exclue de cet indicateur. Les trous de séquence ne font pas l'objet d'une règle.
+- Commande réelle : .venv/Scripts/python.exe -B -m src.validation.payments_validator ; total_rows=103886, valid_rows=103886, review_rows=0 ; sept anomalies par règle toutes à zéro.
+- CSV généré : 103 886 lignes, huit colonnes ; rapport entity=payments avec total_rows/valid_rows/review_rows/anomalies_by_rule et business_indicators.
+- Tests ciblés : 76 passed in 2.69s. Suite complète : .venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider ; 166 passed in 4.85s (90 existants + 76 nouveaux cas).
+- Tests nouveaux : lignes/paiements multiples valides, clés composites, compteurs invalides/fractionnaires/infinis/booléens, références, montants invalides ou zéro, échéanciers zéro, types absents/not_defined/nouveaux, schéma, anomalies multiples, indicateurs sans effet sur qualité, non-mutation/index, table vide, export main() sur fixtures temporaires.
+- pip check : No broken requirements found. Aucun paquet installé ; espace C: mesuré avant travail : 5,549 Gio.
+- Empreintes SHA256 : 30 fichiers protégés inchangés (sources, anciennes sorties, code/tests/notebooks existants). Sorties Payments contrôlées et ignorées par Git ; git diff --check sans erreur.
+- La commande delivered sans paiement n'est pas calculée par ce validateur ; futur contrôle de complétude inter-tables distinct. Aucun montant multiplié par les échéances ; aucune interprétation en chiffre d'affaires comptable.
+- Aucun CSV source, validateur existant, helper ou test antérieur modifié ; aucun accès D:, commit/push, installation ou autre dataset démarré.
+- Prochaine action : validation des résultats et de la séparation structurel/métier par l'étudiant. Ne pas démarrer Products ou une autre étape sans accord ; phase 1 reste à compléter (dictionnaire, schéma source, provenance/licence et cas limites).
+
+## Historique antérieur
+Les mentions suivantes de validateur Payments absent ou en attente concernent les étapes précédentes.
+
+## Bilan courant — exploration Payments — 2026-10-24
+- Phase 1 : IN_PROGRESS ; tâche autorisée : explorer Payments uniquement ; statut : DONE.
+- Créés : notebooks/03_payments_exploration.ipynb et docs/PAYMENTS_EXPLORATION.md. Modifié : docs/PROGRESS.md. Aucun autre fichier modifié pendant cette intervention.
+- Conventions des notebooks 01 et 02, common.py et quality_engine.py examinées ; venv Python 3.11.0 / Pandas 3.1.0 sur C: ; 7,102 Gio libres à la mesure initiale.
+- 103 886 lignes, cinq colonnes, 99 440 commandes distinctes ; aucune valeur absente/vide, aucun doublon exact ou de (order_id, payment_sequential).
+- Types : credit_card 76 795 ; boleto 19 784 ; voucher 5 775 ; debit_card 1 529 ; not_defined 3.
+- Montants : aucun négatif, non numérique ou non fini ; neuf zéros (six voucher, trois not_defined), médiane 100 BRL, maximum 13 664,08 BRL.
+- Somme descriptive de payment_value : 16 008 872,12 BRL, calculée avec Decimal sur toutes les lignes/statuts. Ne pas assimiler à un chiffre d'affaires comptable ; ne pas multiplier par payment_installments.
+- payment_sequential : entier de 1 à 29. 2 961 commandes ont plusieurs paiements (7 407 lignes), 2 246 plusieurs types ; répétitions normales de order_id seul. 80 séquences ne commencent pas à 1, sans trou interne ni clé dupliquée.
+- payment_installments : entier de 0 à 24 ; deux zéros, tous credit_card. Les 51 338 lignes avec plusieurs échéances sont credit_card.
+- Références Orders : aucune inconnue ; jointure many_to_one conserve 103 886 lignes. Une commande delivered n'a pas de paiement enregistré : indicateur de complétude côté Orders.
+- Les neuf paiements zéro concernent huit commandes ; trois commandes ont un total nul. Aucun de ces cas, not_defined, zéro échéance, extrême ou séquence inhabituelle classé automatiquement comme erreur.
+- Proposition structurelle : schéma, IDs, clé composite, référence Orders, compteur payment_sequential >0, payment_installments entier >=0, payment_value fini >=0, type dans le catalogue observé (not_defined inclus). Politique des zéros/types à valider avant implémentation.
+- Indicateurs métier séparés : paiements multiples, types combinés, zéros, not_defined, séquences inhabituelles, extrêmes et commandes sans paiements. Aucune jointure directe Items × Payments et aucune date de paiement inventée.
+- Suite existante exécutée : .venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider ; 90 passed in 3.70s. pip check sans incohérence.
+- Notebook sans sorties enregistrées ; code exploratoire exécuté avec Python, pas avec un noyau Jupyter.
+- Contrôles finaux : code du notebook exécuté dans Python, rapport identique au premier calcul ; SHA256 des 29 fichiers protégés inchangés ; git diff --check sans erreur. Aucune sortie de pipeline ni validateur Payments créé.
+- Aucun CSV/validateur/helper/test existant modifié ; aucun payments_validator.py, sortie de pipeline, installation, téléchargement, service lourd, accès à D:, commit ou push.
+- Prochaine action : faire valider les règles et les indicateurs proposés dans le rapport avant tout validateur Payments. Phase 1 non clôturée : dictionnaire, schéma source, provenance/licence et cas limites restent à compléter.
+
+## Historique antérieur
+Les mentions suivantes de Payments non commencé décrivent les étapes précédentes.
+
+## Bilan courant — validateur Order Items — 2026-10-24
+- Phase 1 : IN_PROGRESS ; tâche autorisée : développer et tester le validateur ; statut : DONE.
+- Créés : src/validation/order_items_validator.py, tests/test_order_items_validator.py, data/processed/order_items_validated.csv et order_items_quality_report.json.
+- Modifiés pendant cette intervention : src/validation/common.py (paramètre optionnel de format de dates), README.md et docs/PROGRESS.md. Requirements/notebook/rapport d'exploration déjà modifiés ou créés lors de l'étape précédente : conservés.
+- validate_order_items(order_items, orders) réutilise check_required_columns(), check_missing_ids(), check_duplicate_ids() et check_invalid_dates(), puis apply_quality_rules().
+- Clé composite (order_id, order_item_id) comparée avec un numéro d'article converti en numérique : "1" et 1 sont équivalents. Toutes les lignes impliquées sont signalées ; clés incomplètes/invalides exclues du motif de doublon, mais signalées par leur propre règle.
+- order_item_id doit être numérique, fini, entier et >0 ; booléens refusés. Les colonnes numériques sources restent conservées dans la copie retournée, conversion réservée aux contrôles.
+- price doit être numérique, fini et >0 ; freight_value numérique, fini et >=0. Les valeurs manquantes/non convertibles/non finies et booléennes sont signalées.
+- Date requise : null/chaîne vide/espaces donnent missing_shipping_limit_date ; une valeur non vide non convertible donne invalid_shipping_limit_date, sans compter l'absence deux fois.
+- check_invalid_dates() accepte désormais date_format en argument nommé optionnel, défaut None : comportement des appels Orders inchangé. Order Items utilise mixed pour accepter plusieurs formats convertibles dans une colonne ; échec initial du test de date 2020 corrigé par ce paramètre, sans modifier les autres validateurs.
+- Aucune règle de date avant approbation, retard transporteur ou année 2020 ; pas de règle de séquence stricte ni seuil maximal arbitraire d'articles/prix.
+- Références Orders vérifiées par appartenance, sans jointure pouvant multiplier les lignes. Aucune validation des références Products/Sellers dans ce périmètre.
+- Exécution réelle : .venv/Scripts/python.exe -B -m src.validation.order_items_validator ; 112 650 total_rows, 112 650 valid_rows, 0 review_rows.
+- Rapport générique entity=order_items ; dix règles toutes à zéro : missing_order_id, missing_product_id, missing_seller_id, duplicate_order_item, invalid_order_item_id, unknown_order, invalid_price, invalid_freight_value, missing_shipping_limit_date, invalid_shipping_limit_date.
+- CSV généré : 112 650 lignes, 10 colonnes. Les 383 frais nuls et les quatre dates en 2020 sont valid. Chronologie traitée séparément comme indicateur, conformément à la demande.
+- Tests finaux : .venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider : 90 passed in 2.31s, dont 21 existants et 69 nouveaux cas paramétrés/fonctionnels.
+- Couverture nouvelle : schéma, IDs absents/vides, clé composite et équivalence numérique, numéro invalide, référence inconnue, montants invalides/infinis, zéro transport accepté, dates invalides/manquantes/mélangées, anomalies multiples, non-mutation/index, table vide et export main() sur fixtures temporaires.
+- pip check : No broken requirements found. Contrôle SHA256 : 22 fichiers protégés inchangés (sources, anciennes sorties, validateurs Orders/Customers, moteur et tests existants). Seul common.py est volontairement adapté.
+- Sorties nouvelles contrôlées (rapport, colonnes de qualité, zéros transport, dates 2020) et confirmées ignorées par Git. git diff --check sans erreur avant clôture documentaire.
+- Aucun CSV source modifié, aucune dépendance installée, aucun accès D:, commit ou push.
+- Prochaine action : confirmation de compréhension et validation des résultats ; aucune validation Payments ou Products commencée. Phase 1 reste à compléter (dictionnaire, schéma source, provenance/licence et couverture restante).
+
+## Historique antérieur
+Les mentions suivantes de validateur Order Items non créé ou en attente concernent les étapes précédentes.
+
+## Bilan courant — exploration order_items — 2026-10-24
+- Phase 1 : IN_PROGRESS ; tâche autorisée d'exploration : DONE. Futur validateur en attente de validation.
+- Python 3.11.0 sur C: vérifié ; 7,151 Gio libres à la mesure initiale.
+- pandas==3.1.0 et ipykernel==7.4.0 ajoutés à requirements.txt seulement car absents. Déjà installés ; métadonnées Requires-Python >=3.11 compatibles ; aucune installation.
+- 112 650 lignes et sept colonnes ; 98 666 commandes, 9 803 avec plusieurs articles ; clé (order_id, order_item_id) unique.
+- Aucun null, champ vide, doublon exact, montant négatif, order_item_id non entier ou référence order_id inconnue. Séquences 1..N complètes, maximum observé 21 sans en faire une borne métier.
+- 383 lignes avec freight_value=0, non considérées automatiquement invalides ; price min 0,85 BRL, max 6 735 BRL.
+- shipping_limit_date : format explicite convertible partout ; quatre lignes en 2020 à examiner. 127 lignes (116 commandes) avant approbation ; aucune avant achat.
+- 10 423 lignes (8 861 commandes) remises au transporteur après échéance : retard potentiel, pas règle de corruption automatique.
+- 775 commandes sans article : 603 unavailable, 164 canceled, 5 created, 2 invoiced, 1 shipped. Contrôle de complétude côté orders.
+- Notebook créé : notebooks/02_order_items_exploration.ipynb, sans sorties sauvegardées ; code exploratoire exécuté avec Python pendant l'audit, noyau Jupyter non lancé.
+- Rapport complet : docs/ORDER_ITEMS_EXPLORATION.md (types, statistiques, dates, références et règles proposées non implémentées).
+- Fichiers changés : requirements.txt, notebook d'exploration, rapport, docs/PROGRESS.md ; README.md actualisé pour les dépendances et l'état de l'exploration.
+- pip check sans incohérence ; suite existante : 21 passed in 1.20s. Contrôles finaux : SHA256 inchangés pour 23 fichiers protégés (données, validateurs et tests), code du nouveau notebook exécuté avec succès via Python ; git diff --check sans erreur.
+- Aucun changement aux validateurs, helpers, tests, CSV ou sorties existants ; aucun order_items_validator.py, téléchargement, service lourd, commit/push ni accès à D:.
+- Prochaine action : faire valider les règles du rapport (notamment clé composite, prix nul et alertes de dates) avant implémentation. Payments, dictionnaire/provenance/licence et schéma source restent à compléter en phase 1.
+
+## Historique antérieur
+Les mentions suivantes de dépendances absentes ou d'exploration order_items non commencée sont historiques et remplacées par le bilan du 2026-10-24.
+
 ## Bilan courant — refactorisation et Customers — 2026-10-23
 - Phase 1 : IN_PROGRESS. Tâche documentaire de cette intervention : DONE.
 - Fichiers modifiés par cette intervention : docs/PROGRESS.md, docs/ARCHITECTURE_DECISIONS.md, README.md. AGENTS.md inchangé : aucune progression à corriger dans la roadmap elle-même.
